@@ -8,8 +8,9 @@ export class ProductosService {
     async obtenerPorCategoria(category: string) {
         let query = '';
         let parameters: any[] = [];
+
         if (!category || category === '') {
-            query = 'SELECT IdProducto, Nombre FROM TbProductosMaquinaria ORDER BY Nombre';
+            query = 'SELECT IdProducto, Nombre FROM `dbo.TbProductosMaquinaria` ORDER BY Nombre';
         } else {
             switch (category) {
                 case 'tractor':
@@ -28,7 +29,7 @@ export class ProductosService {
                     query = 'SELECT IdProducto, Nombre FROM vistaOtros ORDER BY Nombre';
                     break;
                 default:
-                    query = 'SELECT IdProducto, Nombre FROM TbProductosMaquinaria WHERE Nombre LIKE ? ORDER BY Nombre';
+                    query = 'SELECT IdProducto, Nombre FROM `dbo.TbProductosMaquinaria` WHERE Nombre LIKE ? ORDER BY Nombre';
                     parameters = [`%${category}%`];
             }
         }

@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class ProductosService {
-    constructor(private dataSource: DataSource) { }
+    constructor(
+        @InjectDataSource('db1') 
+        private dataSource: DataSource,
+    ) { }
 
     async obtenerPorCategoria(category: string) {
         let query = '';

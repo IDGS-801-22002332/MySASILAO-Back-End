@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config'; // 👈 IMPORTANTE
 import { ProductosModule } from './productos/productos.module';
 import { LoginModule } from './login/login.module';
 import { AnunciosModule } from './anuncios/anuncios.module';
@@ -7,8 +8,12 @@ import { SucursalesModule } from './sucursales/sucursales.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true, // 👈 esto hace que esté disponible en toda la app
+    }),
+
     TypeOrmModule.forRoot({
-      name: 'db1', 
+      name: 'db1',
       type: 'mysql',
       host: 'srv1442.hstgr.io',
       port: 3306,
@@ -23,7 +28,7 @@ import { SucursalesModule } from './sucursales/sucursales.module';
     }),
 
     TypeOrmModule.forRoot({
-      name: 'db2', 
+      name: 'db2',
       type: 'mysql',
       host: '193.203.166.183',
       port: 3306,
@@ -43,4 +48,4 @@ import { SucursalesModule } from './sucursales/sucursales.module';
     SucursalesModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

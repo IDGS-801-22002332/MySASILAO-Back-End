@@ -5,7 +5,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 @Injectable()
 export class ProductosService {
     constructor(
-        @InjectDataSource('db1') 
+        @InjectDataSource('db1')
         private dataSource: DataSource,
     ) { }
 

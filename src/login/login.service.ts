@@ -19,7 +19,6 @@ export class LoginService {
     `;
 
         const result = await this.dataSource.query(query, [usuario, contrasenia]);
-
         if (result.length > 0) {
             return {
                 success: true,

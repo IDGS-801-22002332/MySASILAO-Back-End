@@ -7,6 +7,6 @@ async function bootstrap() {
   // ESTA ES LA LÍNEA MÁGICA QUE QUITA EL ERROR
   app.enableCors(); 
 
-  await app.listen(3000);
+  await app.listen(process.env.PORT || 3000);
 }
 bootstrap();

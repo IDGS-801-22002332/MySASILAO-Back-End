@@ -1,6 +1,8 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { LoginService } from './login.service';
 
+/* The LoginController class in TypeScript defines methods for login, registration, and password
+recovery. */
 @Controller('login')
 export class LoginController {
     constructor(private readonly loginService: LoginService) { }
@@ -8,7 +10,7 @@ export class LoginController {
     @Post()
     async login(
         @Body('usuario') usuario: string,
-        @Body('contrasenia') contrasenia: string
+        @Body('contrasenia') contrasenia: string,
     ) {
         return await this.loginService.login(usuario, contrasenia);
     }

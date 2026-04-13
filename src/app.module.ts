@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/config'; // 👈 IMPORTANTE
+import { ConfigModule } from '@nestjs/config';
 import { ProductosModule } from './productos/productos.module';
 import { LoginModule } from './login/login.module';
 import { AnunciosModule } from './anuncios/anuncios.module';
 import { SucursalesModule } from './sucursales/sucursales.module';
+import { OrdenesReparacionModule } from './ordenes_reparacion/ordenes_reparacion.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true, // 👈 esto hace que esté disponible en toda la app
+      isGlobal: true,
     }),
 
     TypeOrmModule.forRoot({
@@ -46,6 +48,8 @@ import { SucursalesModule } from './sucursales/sucursales.module';
     LoginModule,
     AnunciosModule,
     SucursalesModule,
+    OrdenesReparacionModule,
+    UsuariosModule,
   ],
 })
 export class AppModule { }

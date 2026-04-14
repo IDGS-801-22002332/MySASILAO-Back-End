@@ -1,12 +1,19 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // ESTA ES LA LÍNEA MÁGICA QUE QUITA EL ERROR
-  app.enableCors(); 
+  app.enableCors();
+  
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   await app.listen(3000);
+  console.log('Servidor corriendo en http://localhost:3000');
+  console.log('Archivos estáticos servidos desde: uploads/');
 }
 bootstrap();

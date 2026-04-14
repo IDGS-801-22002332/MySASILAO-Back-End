@@ -23,21 +23,19 @@ export class OrdenesReparacionService {
     async create(data: any, fotos: any[]): Promise<any> {
         const rutasFotos = fotos.map(foto => `/uploads/cotizaciones/${foto.filename}`);
 
-        const query = `
-        INSERT INTO TboOrdenesReparacion (
-            cliente_nombre,
-            cliente_apellido_paterno,
-            cliente_apellido_materno,
-            cliente_correo,
-            cliente_telefono,
-            descripcion_problema,
-            fotos,
-            creado_por,
-            status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-        const values = [
+        const result = await this.dataSource.query(`
+            INSERT INTO TboOrdenesReparacion (
+                cliente_nombre,
+                cliente_apellido_paterno,
+                cliente_apellido_materno,
+                cliente_correo,
+                cliente_telefono,
+                descripcion_problema,
+                fotos,
+                creado_por,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
             data.cliente_nombre,
             data.cliente_apellido_paterno,
             data.cliente_apellido_materno || null,
@@ -47,9 +45,7 @@ export class OrdenesReparacionService {
             JSON.stringify(rutasFotos),
             data.creado_por,
             StatusOrden.EN_REVISION
-        ];
-
-        const result = await this.dataSource.query(query, values);
+        ]);
 
         return {
             success: true,
@@ -70,7 +66,6 @@ export class OrdenesReparacionService {
 
         const params: any[] = [];
 
-        // 🔥 MEJORA: Filtrar correctamente por rol
         if (rol === 'cliente' && usuarioId) {
             query += ` AND o.creado_por = ?`;
             params.push(usuarioId);
@@ -94,7 +89,6 @@ export class OrdenesReparacionService {
         }));
     }
 
-    // 🔥 NUEVO: Método auxiliar para parsear fotos
     private parseFotos(fotos: string): string[] {
         if (!fotos) return [];
         try {
@@ -110,28 +104,18 @@ export class OrdenesReparacionService {
     }
 
     async findOne(id: number): Promise<any> {
-        const query = `
-            SELECT o.*, 
-                u.nombre as mecanico_nombre,
-                u.apellidoPaterno as mecanico_apellido,
-                u.telefono as mecanico_telefono,
-                u.correo as mecanico_correo
-            FROM TboOrdenesReparacion o
-            LEFT JOIN login u ON o.mecanico_asignado_id = u.id
-            WHERE o.id = ? AND o.activo = 1
-        `;
-
-        const results = await this.dataSource.query(query, [id]);
+        const results = await this.dataSource.query(`
+            SELECT * FROM TboOrdenesReparacion
+            WHERE id = ? AND activo = 1
+        `, [id]);
 
         if (results.length === 0) {
-            throw new NotFoundException(`Orden con ID ${id} no encontrada`);
+            throw new NotFoundException(`Orden ${id} no encontrada`);
         }
 
-        const orden = results[0];
-        orden.fotos = orden.fotos ? this.parseFotos(orden.fotos) : [];
-
-        return orden;
+        return results[0];
     }
+
 
     async asignarMecanico(id: number, mecanico_id: number): Promise<any> {
         await this.findOne(id);
@@ -142,10 +126,8 @@ export class OrdenesReparacionService {
         );
 
         if (mecanico.length === 0) {
-            throw new BadRequestException('El mecánico no existe o no tiene el rol correcto');
+            throw new BadRequestException('Mecánico inválido');
         }
-
-        const mecanico_nombre = `${mecanico[0].nombre} ${mecanico[0].apellidoPaterno}`;
 
         await this.dataSource.query(`
             UPDATE TboOrdenesReparacion 
@@ -154,9 +136,14 @@ export class OrdenesReparacionService {
                 status = ?,
                 fecha_asignacion = NOW()
             WHERE id = ?
-        `, [mecanico_id, mecanico_nombre, StatusOrden.EN_PROCESO_ACEPTACION, id]);
+        `, [
+            mecanico_id,
+            `${mecanico[0].nombre} ${mecanico[0].apellidoPaterno}`,
+            StatusOrden.EN_PROCESO_ACEPTACION,
+            id
+        ]);
 
-        return { success: true, message: 'Mecánico asignado exitosamente' };
+        return { success: true };
     }
 
     async agregarCotizacionMecanico(id: number, data: any): Promise<any> {
@@ -166,37 +153,39 @@ export class OrdenesReparacionService {
             throw new BadRequestException('La orden no está en proceso de aceptación');
         }
 
-        const cotizacion_total = data.mano_obra_costo;
-
         await this.dataSource.query(`
             UPDATE TboOrdenesReparacion 
             SET refacciones_necesarias = ?,
                 mano_obra_costo = ?,
                 cotizacion_total = ?,
-                observaciones_mecanico = ?,
-                status = ?
+                observaciones_mecanico = ?
             WHERE id = ?
         `, [
             data.refacciones_necesarias,
             data.mano_obra_costo,
-            cotizacion_total,
+            data.mano_obra_costo,
             data.observaciones_mecanico || null,
-            StatusOrden.BUSCA_REFACCIONES,
             id
         ]);
 
-        return { success: true, message: 'Cotización guardada exitosamente' };
+        return { success: true, message: 'Cotización enviada' };
     }
+
 
     async aceptarRechazarCotizacion(id: number, aceptado: boolean): Promise<any> {
         const orden = await this.findOne(id);
 
-        if (orden.status !== StatusOrden.BUSCA_REFACCIONES) {
-            throw new BadRequestException('La orden no está en búsqueda de refacciones');
+        if (orden.status !== StatusOrden.EN_PROCESO_ACEPTACION) {
+            throw new BadRequestException('La orden no está en proceso de aceptación');
         }
 
-        const nuevoStatus = aceptado ? StatusOrden.TRABAJO_PROCESO : StatusOrden.CANCELADO;
-        const fechaCampo = aceptado ? 'fecha_aceptacion_cliente = NOW()' : 'fecha_cancelado = NOW()';
+        const nuevoStatus = aceptado
+            ? StatusOrden.BUSCA_REFACCIONES
+            : StatusOrden.CANCELADO;
+
+        const fechaCampo = aceptado
+            ? 'fecha_aceptacion_cliente = NOW()'
+            : 'fecha_cancelado = NOW()';
 
         await this.dataSource.query(`
             UPDATE TboOrdenesReparacion 
@@ -208,45 +197,56 @@ export class OrdenesReparacionService {
 
         return {
             success: true,
-            message: aceptado ? 'Cotización aceptada' : 'Cotización rechazada',
             status: nuevoStatus
         };
     }
 
+
     async actualizarStatus(id: number, status: string): Promise<any> {
-        await this.findOne(id);
+        const orden = await this.findOne(id);
+        const actual = orden.status;
 
-        let fechaCampo = '';
-        switch (status) {
-            case StatusOrden.TERMINADO:
-                fechaCampo = 'fecha_terminado = NOW()';
-                break;
-            case StatusOrden.ENTREGADO:
-                fechaCampo = 'fecha_entregado = NOW()';
-                break;
-            case StatusOrden.CANCELADO:
-                fechaCampo = 'fecha_cancelado = NOW()';
-                break;
+        // 🚫 Bloqueos
+        if (actual === StatusOrden.EN_PROCESO_ACEPTACION) {
+            throw new BadRequestException('Esperando respuesta del cliente');
         }
 
-        let query = `UPDATE TboOrdenesReparacion SET status = ?`;
-        const params: any[] = [status];
-
-        if (fechaCampo) {
-            query += `, ${fechaCampo}`;
+        if (actual === StatusOrden.CANCELADO) {
+            throw new BadRequestException('Orden cancelada');
         }
 
-        query += ` WHERE id = ?`;
-        params.push(id);
+        // 🔁 Flujo válido
+        const flujo = {
+            [StatusOrden.BUSCA_REFACCIONES]: [StatusOrden.TRABAJO_PROCESO],
+            [StatusOrden.TRABAJO_PROCESO]: [StatusOrden.TERMINADO],
+            [StatusOrden.TERMINADO]: [StatusOrden.ENTREGADO],
+        };
 
-        await this.dataSource.query(query, params);
+        if (flujo[actual] && !flujo[actual].includes(status)) {
+            throw new BadRequestException(`Cambio inválido de ${actual} a ${status}`);
+        }
 
-        return { success: true, message: 'Estado actualizado exitosamente' };
+        let fecha = '';
+        if (status === StatusOrden.TERMINADO) {
+            fecha = 'fecha_terminado = NOW()';
+        }
+        if (status === StatusOrden.ENTREGADO) {
+            fecha = 'fecha_entregado = NOW()';
+        }
+
+        await this.dataSource.query(`
+            UPDATE TboOrdenesReparacion 
+            SET status = ? ${fecha ? `, ${fecha}` : ''}
+            WHERE id = ?
+        `, [status, id]);
+
+        return { success: true };
     }
 
+
     // 🔥 NUEVO: Obtener órdenes sin mecánico asignado (para interno)
-    async findOrdenesSinAsignar(): Promise<any[]> {
-        const query = `
+    async findOrdenesSinAsignar(): Promise < any[] > {
+    const query = `
             SELECT o.*, 
                 u.nombre as mecanico_nombre,
                 u.apellidoPaterno as mecanico_apellido
@@ -256,16 +256,16 @@ export class OrdenesReparacionService {
             ORDER BY o.fecha_creacion ASC
         `;
 
-        const results = await this.dataSource.query(query);
-        return results.map(row => ({
-            ...row,
-            fotos: row.fotos ? this.parseFotos(row.fotos) : []
-        }));
-    }
+    const results = await this.dataSource.query(query);
+    return results.map(row => ({
+        ...row,
+        fotos: row.fotos ? this.parseFotos(row.fotos) : []
+    }));
+}
 
     // 🔥 NUEVO: Obtener estadísticas para el dashboard del interno
-    async getEstadisticas(): Promise<any> {
-        const query = `
+    async getEstadisticas(): Promise < any > {
+    const query = `
             SELECT 
                 COUNT(*) as total_ordenes,
                 SUM(CASE WHEN status = 'En revisión' THEN 1 ELSE 0 END) as pendientes,
@@ -283,13 +283,13 @@ export class OrdenesReparacionService {
             WHERE activo = 1
         `;
 
-        const results = await this.dataSource.query(query);
-        return results[0];
-    }
+    const results = await this.dataSource.query(query);
+    return results[0];
+}
 
-    // 🔥 NUEVO: Obtener órdenes por rango de fechas
-    async findOrdenesByFechaRange(fechaInicio: Date, fechaFin: Date): Promise<any[]> {
-        const query = `
+    // NUEVO: Obtener órdenes por rango de fechas
+    async findOrdenesByFechaRange(fechaInicio: Date, fechaFin: Date): Promise < any[] > {
+    const query = `
             SELECT o.*, 
                 u.nombre as mecanico_nombre,
                 u.apellidoPaterno as mecanico_apellido
@@ -299,16 +299,16 @@ export class OrdenesReparacionService {
             ORDER BY o.fecha_creacion DESC
         `;
 
-        const results = await this.dataSource.query(query, [fechaInicio, fechaFin]);
-        return results.map(row => ({
-            ...row,
-            fotos: row.fotos ? this.parseFotos(row.fotos) : []
-        }));
-    }
+    const results = await this.dataSource.query(query, [fechaInicio, fechaFin]);
+    return results.map(row => ({
+        ...row,
+        fotos: row.fotos ? this.parseFotos(row.fotos) : []
+    }));
+}
 
     // 🔥 NUEVO: Obtener órdenes por status específico
-    async findOrdenesByStatus(status: string): Promise<any[]> {
-        const query = `
+    async findOrdenesByStatus(status: string): Promise < any[] > {
+    const query = `
             SELECT o.*, 
                 u.nombre as mecanico_nombre,
                 u.apellidoPaterno as mecanico_apellido
@@ -318,10 +318,10 @@ export class OrdenesReparacionService {
             ORDER BY o.fecha_creacion DESC
         `;
 
-        const results = await this.dataSource.query(query, [status]);
-        return results.map(row => ({
-            ...row,
-            fotos: row.fotos ? this.parseFotos(row.fotos) : []
-        }));
-    }
+    const results = await this.dataSource.query(query, [status]);
+    return results.map(row => ({
+        ...row,
+        fotos: row.fotos ? this.parseFotos(row.fotos) : []
+    }));
+}
 }

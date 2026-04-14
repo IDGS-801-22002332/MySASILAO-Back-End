@@ -7,6 +7,7 @@ import { AnunciosModule } from './anuncios/anuncios.module';
 import { SucursalesModule } from './sucursales/sucursales.module';
 import { OrdenesReparacionModule } from './ordenes_reparacion/ordenes_reparacion.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
+import { CarruselModule } from './carrusel/carrusel.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     SucursalesModule,
     OrdenesReparacionModule,
     UsuariosModule,
+    CarruselModule,
   ],
 })
 export class AppModule { }

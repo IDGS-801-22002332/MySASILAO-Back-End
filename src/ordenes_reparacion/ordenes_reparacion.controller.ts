@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { OrdenesReparacionService } from './ordenes_reparacion.service';
 
 @Controller('ordenes')
@@ -15,7 +16,13 @@ export class OrdenesReparacionController {
     @Post()
     @UseInterceptors(FilesInterceptor('fotos', 5, {
         storage: diskStorage({
-            destination: './uploads/cotizaciones',
+            destination: (req, file, callback) => {
+                const uploadDir = join(process.cwd(), 'uploads', 'cotizaciones');
+                if (!existsSync(uploadDir)) {
+                    mkdirSync(uploadDir, { recursive: true });
+                }
+                callback(null, uploadDir);
+            },
             filename: (req, file, callback) => {
                 const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
                 callback(null, `${uniqueSuffix}${extname(file.originalname)}`);
@@ -34,7 +41,10 @@ export class OrdenesReparacionController {
     }
 
     @Get()
-    async findAll(@Query('rol') rol: string, @Query('usuarioId') usuarioId: number) {
+    async findAll(
+        @Query('rol') rol: string,
+        @Query('usuarioId') usuarioId: number
+    ) {
         return await this.ordenesService.findAll(rol, usuarioId);
     }
 
@@ -46,7 +56,7 @@ export class OrdenesReparacionController {
     @Put(':id/asignar-mecanico')
     async asignarMecanico(
         @Param('id', ParseIntPipe) id: number,
-        @Body() body: any
+        @Body() body: { mecanico_id: number }
     ) {
         return await this.ordenesService.asignarMecanico(id, body.mecanico_id);
     }
@@ -62,7 +72,7 @@ export class OrdenesReparacionController {
     @Put(':id/aceptar-cliente')
     async aceptarRechazarCotizacion(
         @Param('id', ParseIntPipe) id: number,
-        @Body() body: any
+        @Body() body: { aceptado: boolean }
     ) {
         return await this.ordenesService.aceptarRechazarCotizacion(id, body.aceptado);
     }
@@ -70,33 +80,38 @@ export class OrdenesReparacionController {
     @Put(':id/status')
     async actualizarStatus(
         @Param('id', ParseIntPipe) id: number,
-        @Body() body: any
+        @Body() body: { status: string }
     ) {
         return await this.ordenesService.actualizarStatus(id, body.status);
     }
 
-    // 🔥 NUEVOS ENDPOINTS PARA INTERNO
-
+    // ÓRDENES SIN MECÁNICO
     @Get('sin-asignar')
     async findOrdenesSinAsignar() {
         return await this.ordenesService.findOrdenesSinAsignar();
     }
 
+    // ESTADÍSTICAS
     @Get('estadisticas/resumen')
     async getEstadisticas() {
         return await this.ordenesService.getEstadisticas();
     }
 
+    // FILTRO POR STATUS
     @Get('filtro/status')
     async findOrdenesByStatus(@Query('status') status: string) {
         return await this.ordenesService.findOrdenesByStatus(status);
     }
 
+    // FILTRO POR FECHAS
     @Get('filtro/fechas')
     async findOrdenesByFechaRange(
-        @Query('fechaInicio') fechaInicio: Date,
-        @Query('fechaFin') fechaFin: Date
+        @Query('fechaInicio') fechaInicio: string,
+        @Query('fechaFin') fechaFin: string
     ) {
-        return await this.ordenesService.findOrdenesByFechaRange(fechaInicio, fechaFin);
+        return await this.ordenesService.findOrdenesByFechaRange(
+            new Date(fechaInicio),
+            new Date(fechaFin)
+        );
     }
 }

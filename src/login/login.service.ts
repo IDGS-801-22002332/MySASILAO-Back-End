@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import * as nodemailer from 'nodemailer';
 import * as bcrypt from 'bcrypt';
+import { identity } from 'rxjs';
 
 @Injectable()
 export class LoginService {
@@ -13,23 +14,25 @@ export class LoginService {
 
     async login(usuario: string, contrasenia: string) {
         const query = `
-        SELECT usuario, rol 
-        FROM login 
-        WHERE usuario = ? AND contrasenia = ?
-    `;
+                SELECT id, usuario, rol, nombre, apellidoPaterno, apellidoMaterno, correo, telefono
+                FROM login
+                WHERE usuario = ? AND contrasenia = ?
+                `;
 
         const result = await this.dataSource.query(query, [usuario, contrasenia]);
         if (result.length > 0) {
+            const user = result[0];
             return {
                 success: true,
                 message: 'Inicio de sesión exitoso',
-                usuario: result[0].usuario,
-                rol: result[0].rol,
-            };
-        } else {
-            return {
-                success: false,
-                message: 'Usuario o contraseña incorrectos',
+                id: user.id,
+                usuario: user.usuario,
+                rol: user.rol,
+                nombre: user.nombre,
+                apellidoPaterno: user.apellidoPaterno,
+                apellidoMaterno: user.apellidoMaterno,
+                correo: user.correo,
+                telefono: user.telefono,
             };
         }
     }
@@ -189,7 +192,6 @@ export class LoginService {
         if (codigo.trim() !== codigoGuardado.trim()) {
             return { success: false, message: 'Código incorrecto' };
         }
-        // ❌ Ya no se hace hash, se guarda la contraseña tal cual
         await this.dataSource.query(
             'UPDATE login SET contrasenia = ?, codigo = NULL WHERE correo = ?',
             [nuevaContrasenia, correo]

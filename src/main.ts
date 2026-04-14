@@ -7,13 +7,14 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.enableCors();
-  
+
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
 
-  await app.listen(3000);
-  console.log('Servidor corriendo en http://localhost:3000');
-  console.log('Archivos estáticos servidos desde: uploads/');
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log("Servidor corriendo en puerto", port);
+  });
 }
 bootstrap();

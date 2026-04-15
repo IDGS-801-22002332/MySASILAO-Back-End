@@ -96,8 +96,7 @@ export class LoginService {
         } catch (error) {
             return {
                 success: false,
-                message: 'Error al registrar usuario',
-                error: error.message,
+                message: 'Error al registrar usuario'
             };
         }
     }

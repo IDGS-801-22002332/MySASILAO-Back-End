@@ -30,10 +30,10 @@ export class UsuariosService {
         
         try {
             const results = await this.dataSource.query(query, [rol]);
-            console.log(`✅ Encontrados ${results.length} usuarios`);
+            console.log(`Encontrados ${results.length} usuarios`);
             return results;
         } catch (error) {
-            console.error('❌ Error en consulta:', error);
+            console.error('Error en consulta:', error);
             throw error;
         }
     }

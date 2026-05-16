@@ -103,7 +103,7 @@ export class LoginService {
 
 
 
-    // ─── NUEVO: Paso 1 — Verificar correo y enviar código ───────────────────
+    // Verificar correo y enviar código 
     async forgotPassword(correo: string) {
         // 1. Verificar que el correo exista
         const result = await this.dataSource.query(
@@ -118,7 +118,7 @@ export class LoginService {
         // 2. Generar código de 6 dígitos
         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
 
-        // 3. Guardar código con timestamp en BD (expiración la manejas en la verificación)
+        // 3. Guardar código con timestamp en BD
         const expiracion = new Date(Date.now() + 5 * 60 * 1000); // +5 minutos
         await this.dataSource.query(
             'UPDATE login SET codigo = ? WHERE correo = ?',
@@ -168,7 +168,7 @@ export class LoginService {
         return { success: true, message: 'Código válido' };
     }
 
-    // login.service.ts (agregar la parte de verificación de código en resetPassword)
+    // agregar la parte de verificación de código en resetPassword
     async resetPassword(correo: string, codigo: string, nuevaContrasenia: string) {
         const result = await this.dataSource.query(
             'SELECT codigo FROM login WHERE correo = ?',
@@ -198,10 +198,10 @@ export class LoginService {
         return { success: true, message: 'Contraseña actualizada correctamente' };
     }
 
-    // ─── Helper: Enviar correo ───────────────────────────────────────────────
+    // Enviar correo 
     private async sendRecoveryEmail(correo: string, codigo: string) {
         const transporter = nodemailer.createTransport({
-            service: 'gmail', // o tu proveedor SMTP
+            service: 'gmail', 
             auth: {
                 user: process.env.MAIL_USER,
                 pass: process.env.MAIL_PASS,

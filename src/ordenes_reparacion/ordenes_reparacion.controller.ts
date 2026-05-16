@@ -114,4 +114,13 @@ export class OrdenesReparacionController {
             new Date(fechaFin)
         );
     }
+
+    @Put(':id/actualizar-cotizacion-mecanico')  // ← Cambié la ruta
+    async actualizarCotizacionMecanico(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() data: any
+    ) {
+        console.log('Recibida actualización para orden:', id, data);
+        return this.ordenesService.actualizarCotizacionMecanico(id, data);
+    }
 }

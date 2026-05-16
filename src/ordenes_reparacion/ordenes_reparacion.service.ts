@@ -75,7 +75,7 @@ export class OrdenesReparacionService {
             params.push(usuarioId);
         }
         else if (rol === 'interno') {
-            // INTERNO ve TODAS las órdenes activas (sin filtro adicional)
+            // INTERNO ve TODAS las órdenes activas
             // No agregamos condiciones extra
             console.log('Interno: Mostrando todas las órdenes');
         }
@@ -206,7 +206,7 @@ export class OrdenesReparacionService {
         const orden = await this.findOne(id);
         const actual = orden.status;
 
-        // 🚫 Bloqueos
+        // Bloqueos
         if (actual === StatusOrden.EN_PROCESO_ACEPTACION) {
             throw new BadRequestException('Esperando respuesta del cliente');
         }
@@ -215,7 +215,7 @@ export class OrdenesReparacionService {
             throw new BadRequestException('Orden cancelada');
         }
 
-        // 🔁 Flujo válido
+        // Flujo válido
         const flujo = {
             [StatusOrden.BUSCA_REFACCIONES]: [StatusOrden.TRABAJO_PROCESO],
             [StatusOrden.TRABAJO_PROCESO]: [StatusOrden.TERMINADO],
@@ -244,9 +244,9 @@ export class OrdenesReparacionService {
     }
 
 
-    // 🔥 NUEVO: Obtener órdenes sin mecánico asignado (para interno)
-    async findOrdenesSinAsignar(): Promise < any[] > {
-    const query = `
+    // Obtener órdenes sin mecánico asignado (para interno)
+    async findOrdenesSinAsignar(): Promise<any[]> {
+        const query = `
             SELECT o.*, 
                 u.nombre as mecanico_nombre,
                 u.apellidoPaterno as mecanico_apellido
@@ -256,16 +256,16 @@ export class OrdenesReparacionService {
             ORDER BY o.fecha_creacion ASC
         `;
 
-    const results = await this.dataSource.query(query);
-    return results.map(row => ({
-        ...row,
-        fotos: row.fotos ? this.parseFotos(row.fotos) : []
-    }));
-}
+        const results = await this.dataSource.query(query);
+        return results.map(row => ({
+            ...row,
+            fotos: row.fotos ? this.parseFotos(row.fotos) : []
+        }));
+    }
 
-    // 🔥 NUEVO: Obtener estadísticas para el dashboard del interno
-    async getEstadisticas(): Promise < any > {
-    const query = `
+    // Obtener estadísticas para el dashboard del interno
+    async getEstadisticas(): Promise<any> {
+        const query = `
             SELECT 
                 COUNT(*) as total_ordenes,
                 SUM(CASE WHEN status = 'En revisión' THEN 1 ELSE 0 END) as pendientes,
@@ -283,13 +283,13 @@ export class OrdenesReparacionService {
             WHERE activo = 1
         `;
 
-    const results = await this.dataSource.query(query);
-    return results[0];
-}
+        const results = await this.dataSource.query(query);
+        return results[0];
+    }
 
-    // NUEVO: Obtener órdenes por rango de fechas
-    async findOrdenesByFechaRange(fechaInicio: Date, fechaFin: Date): Promise < any[] > {
-    const query = `
+    // Obtener órdenes por rango de fechas
+    async findOrdenesByFechaRange(fechaInicio: Date, fechaFin: Date): Promise<any[]> {
+        const query = `
             SELECT o.*, 
                 u.nombre as mecanico_nombre,
                 u.apellidoPaterno as mecanico_apellido
@@ -299,16 +299,16 @@ export class OrdenesReparacionService {
             ORDER BY o.fecha_creacion DESC
         `;
 
-    const results = await this.dataSource.query(query, [fechaInicio, fechaFin]);
-    return results.map(row => ({
-        ...row,
-        fotos: row.fotos ? this.parseFotos(row.fotos) : []
-    }));
-}
+        const results = await this.dataSource.query(query, [fechaInicio, fechaFin]);
+        return results.map(row => ({
+            ...row,
+            fotos: row.fotos ? this.parseFotos(row.fotos) : []
+        }));
+    }
 
-    // 🔥 NUEVO: Obtener órdenes por status específico
-    async findOrdenesByStatus(status: string): Promise < any[] > {
-    const query = `
+    // Obtener órdenes por status específico
+    async findOrdenesByStatus(status: string): Promise<any[]> {
+        const query = `
             SELECT o.*, 
                 u.nombre as mecanico_nombre,
                 u.apellidoPaterno as mecanico_apellido
@@ -318,10 +318,50 @@ export class OrdenesReparacionService {
             ORDER BY o.fecha_creacion DESC
         `;
 
-    const results = await this.dataSource.query(query, [status]);
-    return results.map(row => ({
-        ...row,
-        fotos: row.fotos ? this.parseFotos(row.fotos) : []
-    }));
-}
+        const results = await this.dataSource.query(query, [status]);
+        return results.map(row => ({
+            ...row,
+            fotos: row.fotos ? this.parseFotos(row.fotos) : []
+        }));
+    }
+
+    // Acttualizar cotización del mecánico
+    async actualizarCotizacionMecanico(id: number, data: any): Promise<any> {
+        const orden = await this.findOne(id);
+
+        console.log('Estado actual de la orden:', orden.status); // Para depurar
+
+        // Permitir actualizar en BUSCA_REFACCIONES o también si ya está en TRABAJO_PROCESO? (opcional)
+        if (orden.status !== StatusOrden.BUSCA_REFACCIONES) {
+            throw new BadRequestException(`No puedes actualizar la cotización. Estado actual: ${orden.status}. Solo se permite en estado "Busca de refacciones"`);
+        }
+
+        // Calcular el nuevo total (mano_obra_costo + costo refacciones)
+        const nuevoTotal = parseFloat(data.mano_obra_costo);
+
+        // Reiniciar la aceptación del cliente para que vuelva a decidir
+        await this.dataSource.query(`
+        UPDATE TboOrdenesReparacion 
+        SET refacciones_necesarias = ?,
+            mano_obra_costo = ?,
+            cotizacion_total = ?,
+            observaciones_mecanico = ?,
+            aceptacion_cliente = NULL,
+            status = ?
+        WHERE id = ?
+    `, [
+            data.refacciones_necesarias || null,
+            data.mano_obra_costo,
+            nuevoTotal,
+            data.observaciones_mecanico || null,
+            StatusOrden.EN_PROCESO_ACEPTACION, // Regresa a aceptación del cliente
+            id
+        ]);
+
+        return {
+            success: true,
+            message: 'Cotización actualizada. El cliente deberá aceptarla nuevamente.',
+            nuevoStatus: StatusOrden.EN_PROCESO_ACEPTACION
+        };
+    }
 }
